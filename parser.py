@@ -1,5 +1,5 @@
 import time
-
+import threading
 import vk  # Импортируем модуль vk
 import platform
 import os
@@ -8,6 +8,7 @@ import win10toast
 online = ['не в сети', 'в сети']
 status_code = ["вышел из сети", 'вошёл в сеть']
 pref = 'https://vk.com/'
+status = {}
 
 
 def get_status_of_target(tok, ids):
@@ -27,6 +28,7 @@ def check_status(tok, ids, base, fh):
         if (i in base) and (base[i] != data[i]):
             push('VK-analyzer', i + ': ' + status_code[data[i]])
             fh.write(time.ctime(time.time()) + ' - ' + i + ': ' + status_code[data[i]] + '\n')
+            fh.flush()
     return data
 
 
@@ -47,12 +49,10 @@ def push(title, message):
         return
     os.system(command)
 
+#      #####_MAIN_METHODS_#####
 
-if __name__ == "__main__":
-    f = open('service_key.txt', 'r')
-    token = str(f.readline())  # Сервисный ключ доступа
-    session = vk.Session(access_token=token)  # Авторизация
-    vk_api = vk.API(session)
+
+def stalking():
     t = open('targets.txt', 'r', encoding='UTF-8')
     users = []
     while True:
@@ -60,13 +60,58 @@ if __name__ == "__main__":
         if not line:
             break
         users.append(line.replace(pref, '').replace('\n', ''))
-    with open("log.txt", 'a', encoding='UTF-8') as file_handler:
-        targets = get_status_of_target(token, users)
-        message = ''
-        for i in targets:
-            message += i + ' : ' + online[targets[i]] + '\n'
-        file_handler.write(time.ctime(time.time()) + '\n' + message)
-        push('VK-analyzer', message)
+    file_handler = open("output.txt", 'a', encoding='utf-8')
+    print('Stalking starting')
+    targets = get_status_of_target(token, users)
+    message = ''
+    for i in targets:
+        message += i + ' : ' + online[targets[i]] + '\n'
+    m = '*' * 20 + '\n' + time.ctime(time.time()) + '\n' + message + '*' * 20 + '\n'
+    file_handler.write(m)
+    file_handler.flush()
+    push('VK-analyzer', message)
+    while (status['stalking']):
+        time.sleep(1)
+        targets = check_status(token, users, targets, file_handler)
+    print('Stalking aborted')
+
+
+def something():
+    return
+
+
+class ThreadsMaker:
+    def command_handler(self):
+        threads = {}
         while(True):
+            answer = str(input('> '))
+            a = answer.split(' ')
+            command = a[0]
+            if command == 'stalking':
+                subcommand = a[1]
+                if subcommand == 'start':
+                    th = threading.Thread(target=stalking, daemon=True)
+                    th.start()
+                    status['stalking'] = True
+                    threads['stalking'] = th
+                elif subcommand == 'stop':
+                    status['stalking'] = False
             time.sleep(1)
-            targets = check_status(token, users, targets, file_handler)
+
+
+if __name__ == "__main__":
+    try:
+        f = open('service_key.txt', 'r')
+        token = str(f.readline())  # Сервисный ключ доступа
+        f.close()
+        session = vk.Session(access_token=token)  # Авторизация
+        vk_api = vk.API(session)
+        thread_master = ThreadsMaker()
+        thread_master.command_handler()
+    except FileNotFoundError:
+        print('File \'service_key.txt\' not found!')
+
+
+
+
+
